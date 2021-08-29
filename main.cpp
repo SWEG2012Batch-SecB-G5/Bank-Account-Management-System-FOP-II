@@ -29,22 +29,90 @@ enum Option
     BALANCE,
     TRANSFER,
     HISTORY,
+    INFO,
     DELETE,
     MAIN_MENU,
     EXIT
 };
 const uInt WIDTH = 75;
+const string ADMIN_PASS = "admin231";
 double maxWithdraw = 3000;
+
+void printOption();
+void printTitle(string title);
+void printLine(char fill);
+
 struct Account
 {
     string fullName;
-    string account_number;
+    uInt account_number;
     string phone;
     char sex;
     uInt age;
     //AccountType type;
     double balance;
     string password;
+
+    void withdraw(double amount)
+    {
+        if (amount >= maxWithdraw)
+        {
+            cout << "You exceeded a give maximum withdraw for the day!" << endl;
+        }
+        else if (amount < balance)
+        {
+            balance -= amount;
+            // log to transactions
+            cout << "Success! Your account has been debited with " << amount << ".\n"
+                << "Your current balance is " << balance << endl;
+        }
+        else
+        {
+            cout << "You can't withdraw. Check if you have enough balance\n";
+        }        
+    }
+
+    void deposit(double amount)
+    {
+        balance += amount;
+        // log to transaction
+        cout << "Success! Your account has been credited with " << amount
+            << ". Your current balance is " << balance << endl;
+    }
+
+    void transfer(Account& a, double amount)
+    {
+
+        cout << "The account " << a.account_number
+            << " belongs to " << a.fullName << ". Amount to be transfered is "
+            << amount << ". confrim(y/n)? ";
+        char choice; cin >> choice;
+        if (choice == 'y')
+        {
+            if (balance > amount)
+                cout << "You don't have enough balance. " << endl;
+            
+            a.balance += amount;
+            balance -= amount;
+            // log to transactions
+            cout << "Success! You sent " << amount << " birr to " << a.fullName << "(" << a.account_number << ')'
+                << ". Your current balance is " << balance << ".\n";
+        }
+        else
+        {
+            cout << "Cancelled!.\n";
+        }
+    }
+    void printInfo()
+    {
+        printTitle(fullName + "'s Information");
+        cout << "Name\t: " << fullName << endl
+            << "Account Number\t: " << account_number << endl
+            << "Phone\t: " << phone << endl
+            << "Age\t: " << age << endl
+            << "Balance\t: " << balance << endl;
+    }
+
 };
 
 struct Transaction
@@ -55,10 +123,6 @@ struct Transaction
     double remaining;
 };
 
-void printOption();
-void printTitle(string title);
-void printLine(char fill);
-
 int main()
 {
     vector<Account> customers;
@@ -66,7 +130,7 @@ int main()
 
     do
     {
-        printLine( '-');
+        printLine('-');
         cout << "What do you wan't to do: \n"
             << "\t1. Login\n"
             << "\t2. Register\n"
@@ -79,26 +143,29 @@ int main()
         {
         case LOGIN: {
             printTitle("Log In");
-            char acc_number[10];
+            uInt acc_number;
             string password;
             cout << "Account Number: "; cin >> acc_number;
             cout << "Password: "; cin >> password;
-            uInt id = stoi(acc_number) % 10000;
-            cout << endl;
-            printLine('_');
+            uInt id = acc_number % 10000;
+            printLine('-');
             try
             {
                 currUser = customers.at(id);
+                if (currUser.password != password)
+                {
+                    cout << "Incorrect Password Try again!\n";
+                    continue;
+                }
             } catch (out_of_range &e)
             {
                 cerr << "Can't find user.\n" \
-                    "Please retry with correct account number and " \
-                    "password or create a new account.\n";
+                    "Please retry with correct account number or create a new account.\n";
                 continue;
             }
             cout << "Successfully Logged in.\n";
-            
-            printTitle("Wellcome, " + currUser.fullName+ "!\n");
+
+            printTitle("Wellcome, " + currUser.fullName + "!");
             do
             {
                 printOption();
@@ -108,26 +175,13 @@ int main()
                 case WITHDRAW: {
                     double amount;
                     cout << "How much? "; cin >> amount;
-                    if (amount < maxWithdraw && amount < currUser.balance)
-                    {
-                        currUser.balance -= amount;
-                        // log to transactions
-                        cout << "Success! Your account has been debited with " << amount << ".\n"
-                            << "Your current balance is " << currUser.balance << endl;
-                    } else
-                    {
-                        cout << "You can't withdraw. Check if you have enough balance\n";
-                    }
-
+                    currUser.withdraw(amount);
                     break;
                 }
                 case DEPOSIT: {
                     double amount;
                     cout << "How much? "; cin >> amount;
-                    currUser.balance += amount;
-                    // log to transaction
-                    cout << "Success! Your account has been credited with " << amount
-                        << ". Your current balance is " << currUser.balance << endl;
+                    currUser.deposit(amount);
                     break;
                 }
                 case BALANCE: {
@@ -135,46 +189,32 @@ int main()
                     break;
                 }
                 case TRANSFER: {
-                    string acc_number;
+                    uInt acc_number;
                     double amount;
                     cout << "Account: "; cin >> acc_number;
                     cout << "How much do you want to transfer: ";
                     cin >> amount;
-                    uInt id = stoi(acc_number) % 10000;
-                    Account acc = customers.at(id);
-
-                    cout << "The account " << acc_number 
-                        << " belongs to " << acc.fullName << ". Amount to be transfered is "
-                        << amount << ". confrim(y/n)? ";
-                    char choice; cin >> choice;
-                    if (choice == 'y' && currUser.balance > amount)
-                    {
-                        acc.balance += amount;
-                        currUser.balance -= amount;
-                        // log to transactions
-                        cout << "Success! You sent " << amount << " birr to " << acc.fullName << "(" << acc.account_number << ')'
-                            << ". Your current balance is " << currUser.balance << ".\n";
-                    } else if (choice == 'n')
-                    {
-                        cout << "Cancelled!.\n";
-                    }                     else
-                    {
-                        cout << "You don't have enough balance. \n";
-                    }
+                    uInt id = acc_number % 10000;
+                    currUser.transfer(customers.at(id), amount);
+                    
+                    break;
+                }
+                case INFO: {
+                    currUser.printInfo();
                     break;
                 }
                              // TODO: case HISTORY
                 case DELETE: {
                     cout << "Are you sure you want to delete your account?(y/n) ";
-                    char choice;
-                    cin >> choice;
+                    char choice; cin >> choice;
                     if (choice == 'y')
                     {
-                        uInt id = stoi(currUser.account_number) % 10000;
+                        uInt id = currUser.account_number % 10000;
                         customers.erase(customers.begin() + id);
-                        cout << "Your account has been deleted!\n";
+                        printTitle("Your account has been deleted!");
                         goto exit_loop2;
-                    } else
+                    }
+                    else
                     {
                         cout << "cancelled.\n";
                     }
@@ -206,12 +246,13 @@ int main()
             customer.fullName = first + ' ' + last;
             cout << "Gender: "; cin >> customer.sex;
             cout << "Intial Balance: "; cin >> customer.balance;
-            cout << "Age: "; cin >> customer.age;
+            cout << "Age:2 "; cin >> customer.age;
             cout << "Phone: "; cin >> customer.phone;
             cout << "Password: "; cin >> customer.password;
-            customer.account_number = to_string(10000 + (int)customers.size());
-
+            customer.account_number = 10000 + customers.size();
             customers.push_back(customer);
+            
+            cout << endl;
             printLine('_');
             cout << "\nSuccessfully registered! your account number is "
                 << customer.account_number << "\n";
@@ -219,7 +260,28 @@ int main()
             break;
         }
         case ADMIN: {
-            cout << " TODO[=]\n";
+            printTitle("Log In as Admin");
+            string password;
+            cout << "password : "; cin >> password;
+            if (password != ADMIN_PASS)
+            {
+                cout << "Incorrect password! Please try again.\n";
+                continue;
+            }
+
+            printTitle("Wellcome, Admin");
+            
+            // show all accounts
+            cout << "Account\tName\t\tAge\tSex\tBalance\n";
+            for (Account a : customers)
+            {
+                cout << a.account_number << '\t'
+                    << a.fullName << '\t'
+                    << a.age << '\t'
+                    << a.sex << '\t'
+                    << a.balance << endl;
+            }
+            
             break;
         }
         case EXIT_M: {
@@ -245,9 +307,10 @@ void printOption()
         << "\t3. Check your balance\n"
         << "\t4. Transfer to another account\n"
         << "\t5. Transactions history[TODO]\n"
-        << "\t6. Delete account\n"
-        << "\t7. Go to main menu\n"
-        << "\t8. Exit\n"
+        << "\t6. Your information\n"
+        << "\t7. Delete account\n"
+        << "\t8. Go to main menu\n"
+        << "\t9. Exit\n"
         << "? ";
 }
 
