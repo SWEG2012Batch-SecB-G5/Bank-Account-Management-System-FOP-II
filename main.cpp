@@ -84,6 +84,7 @@ int main()
             cout << "Account Number: "; cin >> acc_number;
             cout << "Password: "; cin >> password;
             uInt id = stoi(acc_number) % 10000;
+            cout << endl;
             printLine('_');
             try
             {
