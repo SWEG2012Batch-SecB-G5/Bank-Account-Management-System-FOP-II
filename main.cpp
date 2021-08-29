@@ -33,6 +33,7 @@ enum Option
     MAIN_MENU,
     EXIT
 };
+const uInt WIDTH = 75;
 double maxWithdraw = 3000;
 struct Account
 {
@@ -55,6 +56,9 @@ struct Transaction
 };
 
 void printOption();
+void printTitle(string title);
+void printLine(char fill);
+
 int main()
 {
     vector<Account> customers;
@@ -62,6 +66,7 @@ int main()
 
     do
     {
+        printLine( '-');
         cout << "What do you wan't to do: \n"
             << "\t1. Login\n"
             << "\t2. Register\n"
@@ -73,12 +78,13 @@ int main()
         switch (option)
         {
         case LOGIN: {
-            cout << "Log In" << endl;
+            printTitle("Log In");
             char acc_number[10];
             string password;
             cout << "Account Number: "; cin >> acc_number;
             cout << "Password: "; cin >> password;
             uInt id = stoi(acc_number) % 10000;
+            printLine('_');
             try
             {
                 currUser = customers.at(id);
@@ -90,7 +96,8 @@ int main()
                 continue;
             }
             cout << "Successfully Logged in.\n";
-            cout << "Wellcome, " << currUser.fullName << "!\n";
+            
+            printTitle("Wellcome, " + currUser.fullName+ "!\n");
             do
             {
                 printOption();
@@ -190,6 +197,7 @@ int main()
         }
         case REGISTER:
         {
+            printTitle("Create New Account");
             cout << "Please Enter Following inforamtions to register:\n";
             Account customer;
             string first, last;
@@ -203,13 +211,14 @@ int main()
             customer.account_number = to_string(10000 + (int)customers.size());
 
             customers.push_back(customer);
+            printLine('_');
             cout << "\nSuccessfully registered! your account number is "
                 << customer.account_number << "\n";
             continue;
             break;
         }
         case ADMIN: {
-            cout << " ";
+            cout << " TODO[=]\n";
             break;
         }
         case EXIT_M: {
@@ -228,8 +237,8 @@ int main()
 
 void printOption()
 {
-    cout << endl << string(100, '-') << endl;
-        << "What do you wan't to do: \n"
+    printLine('-');
+    cout << "What do you wan't to do: \n"
         << "\t1. Withdraw Money\n"
         << "\t2. Deposit\n"
         << "\t3. Check your balance\n"
@@ -239,4 +248,18 @@ void printOption()
         << "\t7. Go to main menu\n"
         << "\t8. Exit\n"
         << "? ";
+}
+
+// prints centered 
+void printTitle(string title)
+{
+    printLine('~');
+    cout << string((WIDTH - title.length()) / 2, ' ') << title << endl;
+    printLine('~');
+}
+
+// print n character long line with specfied fill character
+void printLine(char fill)
+{
+    cout << string(WIDTH, fill) << endl;
 }
