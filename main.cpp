@@ -1,8 +1,10 @@
 #include <iostream>
+#include <iomanip>
 #include <ctime>
 #include <cstdlib>
 #include <vector>
 #include <cstring>
+#include <ctime>
 #include <algorithm>
 using namespace std;
 
@@ -41,49 +43,95 @@ void printOption();
 void printTitle(string title);
 void printLine(char fill = '-');
 
+struct Date
+{
+    time_t ltime; // seconds since epoch
+    Date() { ltime = time(0); }
+
+    string print()
+    {
+        return string(ctime(&ltime)).substr(3);
+    }
+
+};
+
+// used to hold history of trasaction
+struct Transaction
+{
+    uInt account;
+    Date date; //time of the transaction took place
+    double amount;  // amount of transaction
+    double remaining; // remaining balance after transaction 
+    char type; // for withdraw and transfer and + for deposit
+
+    // prints single transaction
+    void print()
+    {
+        
+        cout << account << '\t'
+            << type
+            << amount << '\t'
+            << remaining << '\t'
+            << date.print();
+    }
+};
 class Account
 {
-    char password[16];
+    string password;
+    uInt numOfTransaction = 0;
 public:
-    char fullName[30];
+    string fullName;
     uInt account_number;
-    char phone[12];
+    string phone;
     char sex;
     uInt age;
     AccountType type;
     double balance;
+    Transaction transactions[10];
 
     Account() {}
 
-    Account(char *name, double initBalance,
-        char *passw, char *phoneNumber,
+    Account(string name, double initBalance,
+        string passw, string phoneNumber,
         char s, uInt agg,
         AccountType t = SAVING)
     {
-        strcpy(fullName, name);
+        fullName = name;
         balance = initBalance;
         type = t;
         account_number = currId;
-        strcpy(password, passw);
-        strcpy(phone, phoneNumber);
+        password = passw;
+        phone = phoneNumber;
         sex = s;
         age = agg;
 
-        currId++;
+        // log to transaction
+        log(initBalance);
+
+        currId++; // update account number id
     }
+    // logs to to transaction history
+    void log(double amount, char type = '+')
+    {
+        Date now;
+        Transaction newTrans = { account_number, now, amount, balance, type };
+        transactions[numOfTransaction] = newTrans;
+        numOfTransaction++;
+    }
+
+    // change password
     void setPassword(const char *pass)
     {
         if (strlen(pass) < 4 || strlen(pass) > 15) {
             cout << "[ERROR!] The password must be at least 4 character.\n";
             return;
         }
-        strcpy(password, pass);
+        password = pass;
     }
 
-    char *getPassword() { return password; }
-    bool checkPassword(char *pass)
+    bool checkPassword(string pass)
     {
-        if (strcmp(pass, password) == 0) return true;
+        if (pass == password) return true;
         cout << "[ERROR!] Incorrect password! Please try again.\n";
         return false;
     }
@@ -94,12 +142,14 @@ public:
             cout << "You exceeded a given maximum withdraw for the day!" << endl;
         else if (amount < balance) {
             balance -= amount;
-            // log to transactions
-            cout << "Success! Your account has been debited with " << amount << ".\n"
+            // log to transaction
+            log(amount, '-');
+
+            cout << "\nSuccess! Your account has been debited with " << amount << ".\n"
                 << "Your current balance is " << balance << endl;
         }
         else {
-            cout << "You can't withdraw. Check if you have enough balance\n";
+            cout << "\nYou can't withdraw. Check if you have enough balance\n";
         }
     }
 
@@ -107,7 +157,8 @@ public:
     {
         balance += amount;
         // log to transaction
-        cout << "Success! Your account has been credited with " << amount
+        log(amount);
+        cout << "\nSuccess! Your account has been credited with " << amount
             << ". \nYour current balance is " << balance << endl;
     }
 
@@ -118,30 +169,42 @@ public:
             << amount << ". confrim(y/n)? ";
         char choice; cin >> choice;
         if (choice == 'y') {
-            if (balance > amount)
+            if (balance < amount) {
                 cout << "You don't have enough balance. " << endl;
+                return;
+            }
 
             a->balance += amount;
             balance -= amount;
-            // log to transactions
-            cout << "Success! You sent " << amount << " birr to "
-                << a->fullName << "(" << a->account_number << ")\n"
-                << ". Your current balance is " << balance << ".\n";
+            // log to transaction
+            log(amount, '-');
+            a->log(amount, '+');
+
+            cout << "\nSuccess! You sent " << amount << " birr to "
+                << a->fullName << "(" << a->account_number << ")"
+                << ".\nYour current balance is " << balance << ".\n";
         }
         else
             cout << "Cancelled!.\n";
     }
+
+    void printHistory()
+    {
+        cout << "\nAccount\tAmount\tRemaining\tDate\n";
+        printLine();
+        for (uInt i = 0; i < numOfTransaction; i++)
+            transactions[i].print();
+        cout << endl;
+    }
     void printInfo()
     {
-        printTitle(string(fullName) + "'s Information");
+        printTitle(fullName + "'s Information");
         cout << "Name\t: " << fullName << endl
-            << "Account Number\t: " << account_number << endl
+            << "ID\t: " << account_number << endl
             << "Phone\t: " << phone << endl
             << "Age\t: " << age << endl
-            << "Password\t:" << password << endl
             << "Balance\t: " << balance << endl;
     }
-
 };
 
 
@@ -216,41 +279,35 @@ public:
 };
 
 
-struct Transaction
-{
-    string account_number;
-    time_t date;
-    double amount;
-    double remaining;
-};
-
 int main()
 {
-
+    // list of accounts
     Users users;
+    Account *currUser = 0;
 
+    // sample accounts for demonistration only 
     Account user("Biniam", 23.45, "1234", "0972586160", 'M', 22);
     Account user1("Abebe", 234.45, "1234", "0945353460", 'M', 18);
-    Account user2("Bereket", 234.45, "1234", "0945353460", 'F', 18);
+    Account user2("Mesert", 234.45, "1234", "0945353460", 'F', 18);
     users.push(user);
     users.push(user2);
     users.push(user1);
 
-    Account *currUser;
     do {
         printLine('-');
-        cout << "What do you wan't to do: \n"
+        cout << "  What do you wan't to do: \n"
             << "\t1. Login\n"
             << "\t2. Login as admin\n"
             << "\t3. Exit\n"
             << "? ";
+
         uInt option;
         cin >> option;
         switch (option) {
         case LOGIN: {
             printTitle("Log In");
             uInt acc_number;
-            char password[16];
+            string password;
             cout << "Account Number: "; cin >> acc_number;
             cout << "Password: "; cin >> password;
             printLine();
@@ -267,7 +324,7 @@ int main()
             }
             cout << "Successfully Logged in.\n";
 
-            printTitle("Wellcome, " + string(currUser->fullName) + "!");
+            printTitle("Wellcome, " + currUser->fullName + "!");
             do {
                 printOption();
                 cin >> option;
@@ -303,7 +360,11 @@ int main()
                     currUser->printInfo();
                     break;
                 }
-                         // TODO: case HISTORY
+                case HISTORY: {
+                    printTitle("Transactions");
+                    currUser->printHistory();
+                    break;
+                }
                 case LOGOUT:
                     goto exit_loop2;
                     break;
@@ -343,7 +404,7 @@ int main()
                         double initBalance;
                         char sex;
                         uInt age;
-                        char fullName[30], password[16], phone[12];
+                        string fullName, password, phone;
                         for (uInt i = 0; i < nums; i++) {
                             cout << "Enter following info for user " << i + 1 << ": \n";
                             cout << "Full Name: "; cin >> fullName;
