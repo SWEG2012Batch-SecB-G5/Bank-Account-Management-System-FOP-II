@@ -1,4 +1,3 @@
 # Bank Account Management System
 
-
-functions, arrays strings
+Admin Password: `admin123`

@@ -36,9 +36,18 @@ enum Option
 };
 const uInt WIDTH = 75;
 const string ADMIN_PASS = "admin123";
+// max and min length of password and name
+const uInt MIN_NAME = 4, MAX_NAME = 25, MIN_PASS = 4, MAX_PASS = 8;
 double maxWithdraw = 5000;
-uInt currId = 100000;
+uInt currId = 100000; // to keep track of the account 
 
+// prototypes
+uInt &validatedInput(uInt &val, string msg);
+double &validatedInput(double &val, string msg);
+string &validatedStringInput(string &val, string msg, uInt min, uInt max);
+string &validatedNameInput(string &val, uInt min, uInt max);
+char &validatedInput(char &val, string msg);
+void printError(string msg);
 void printOption();
 void printTitle(string title);
 void printLine(char fill = '-');
@@ -55,30 +64,26 @@ struct Date
 
 };
 
-// used to hold history of trasaction
+// used to hold history of transaction
 struct Transaction
 {
     uInt account;
     Date date; //time of the transaction took place
     double amount;  // amount of transaction
     double remaining; // remaining balance after transaction 
-    char type; // for withdraw and transfer and + for deposit
 
     // prints single transaction
     void print()
     {
-        
-        cout << account << '\t'
-            << type
-            << amount << '\t'
-            << remaining << '\t'
-            << date.print();
+        cout << setw(7) << account
+            << setw(12) << remaining
+            << setw(12) << showpos << amount
+            << noshowpos << setw(25) << date.print();
     }
 };
 class Account
 {
     string password;
-    uInt numOfTransaction = 0;
 public:
     string fullName;
     uInt account_number;
@@ -88,6 +93,7 @@ public:
     AccountType type;
     double balance;
     Transaction transactions[10];
+    uInt numOfTransaction = 0;
 
     Account() {}
 
@@ -111,10 +117,10 @@ public:
         currId++; // update account number id
     }
     // logs to to transaction history
-    void log(double amount, char type = '+')
+    void log(double amount)
     {
         Date now;
-        Transaction newTrans = { account_number, now, amount, balance, type };
+        Transaction newTrans = { account_number, now, amount, balance };
         transactions[numOfTransaction] = newTrans;
         numOfTransaction++;
     }
@@ -122,8 +128,8 @@ public:
     // change password
     void setPassword(const char *pass)
     {
-        if (strlen(pass) < 4 || strlen(pass) > 15) {
-            cout << "[ERROR!] The password must be at least 4 character.\n";
+        if (strlen(pass) < MAX_PASS || strlen(pass) > MIN_PASS) {
+            printError("The password must be at least 4 character.");
             return;
         }
         password = pass;
@@ -132,24 +138,24 @@ public:
     bool checkPassword(string pass)
     {
         if (pass == password) return true;
-        cout << "[ERROR!] Incorrect password! Please try again.\n";
+        printError("Incorrect password! Please try again.");
         return false;
     }
 
     void withdraw(double amount)
     {
         if (amount >= maxWithdraw)
-            cout << "You exceeded a given maximum withdraw for the day!" << endl;
+            printError("You exceeded a given maximum withdraw for the day.");
         else if (amount < balance) {
             balance -= amount;
             // log to transaction
-            log(amount, '-');
+            log(-amount);
 
             cout << "\nSuccess! Your account has been debited with " << amount << ".\n"
                 << "Your current balance is " << balance << endl;
         }
         else {
-            cout << "\nYou can't withdraw. Check if you have enough balance\n";
+            printError("You can't withdraw. Check if you have enough balance");
         }
     }
 
@@ -170,15 +176,15 @@ public:
         char choice; cin >> choice;
         if (choice == 'y') {
             if (balance < amount) {
-                cout << "You don't have enough balance. " << endl;
+                printError("You don't have enough balance. ");
                 return;
             }
 
             a->balance += amount;
             balance -= amount;
             // log to transaction
-            log(amount, '-');
-            a->log(amount, '+');
+            log(-amount);
+            a->log(amount);
 
             cout << "\nSuccess! You sent " << amount << " birr to "
                 << a->fullName << "(" << a->account_number << ")"
@@ -190,7 +196,10 @@ public:
 
     void printHistory()
     {
-        cout << "\nAccount\tAmount\tRemaining\tDate\n";
+        cout << endl << setw(7) << "Account"
+            << setw(12) << "Remaining"
+            << setw(12) << "Amount"
+            << setw(22) << "Date" << endl;
         printLine();
         for (uInt i = 0; i < numOfTransaction; i++)
             transactions[i].print();
@@ -249,13 +258,42 @@ public:
     {
         if (index < size)
             return &users[index];
-        throw "out_of_range";
     }
+
+    // get account using account number
+    Account *getByAccount(uInt accNumber)
+    {
+        int index = getIndex(accNumber);
+        if (index < 0)
+            return nullptr;
+        return get(getIndex(accNumber));
+    }
+
+    int getIndex(uInt accNumber)
+    {
+        uInt index = -1;
+        for (uInt i = 0; i < size; i++) {
+            if (users[i].account_number == accNumber) {
+                index = i;
+                break;
+            }
+        }
+        if (index != -1)
+            printError("Not found");
+        
+        return index;
+    }
+
     // removes from the particular index
     void remove(uInt index)
     {
-        if (index == size) {
-            cout << "Todo\n";
+        if (index == size) { // if the last elements
+            size--;
+        }
+        else { // if the element in the middle swapping after the element
+            for (uInt i = index; i < size; i++)
+                users[i] = users[i + 1];
+            size--;
         }
     }
 
@@ -263,16 +301,22 @@ public:
 
     void print()
     {
-        cout << "\n\nAccount\tName\tAge\tSex\tBalance\t\tPhone\n";
+        cout << "\n\n" << left << setw(10) << "Account"
+            << setw(17) << "Name"
+            << setw(5) << "Age"
+            << setw(5) << "Sex"
+            << setw(10) << "Type"
+            << right << setw(12) << "Balance"
+            << setw(15) << "Phone\n";
         printLine();
         for (uInt i = 0; i < size; i++) {
-            cout << users[i].account_number << '\t'
-                << users[i].fullName << '\t'
-                << users[i].age << '\t'
-                << users[i].sex << '\t'
-                // << (users[i].type == DEPOSIT ? "Deposit\t" : "Transfer\t")
-                << users[i].balance << "\t\t"
-                << users[i].phone << '\n';
+            cout << left << setw(10) << users[i].account_number
+                << setw(17) << users[i].fullName
+                << setw(5) << users[i].age
+                << setw(5) << users[i].sex
+                << setw(10) << (users[i].type == DEPOSIT ? "Deposit" : "Transfer")
+                << right << setw(12) << users[i].balance
+                << setw(15) << users[i].phone << '\n';
         }
         cout << endl;
     }
@@ -285,10 +329,10 @@ int main()
     Users users;
     Account *currUser = 0;
 
-    // sample accounts for demonistration only 
-    Account user("Biniam", 23.45, "1234", "0972586160", 'M', 22);
-    Account user1("Abebe", 234.45, "1234", "0945353460", 'M', 18);
-    Account user2("Mesert", 234.45, "1234", "0945353460", 'F', 18);
+    // sample accounts for demonistration purpose only 
+    Account user("Biniam Tifna", 23.45, "1234", "0985020616", 'M', 22);
+    Account user1("Abebe Jared", 234.45, "1234", "0904353460", 'M', 18);
+    Account user2("Isuelt Faire", 234.45, "1234", "0945353460", 'F', 18);
     users.push(user);
     users.push(user2);
     users.push(user1);
@@ -298,46 +342,51 @@ int main()
         cout << "  What do you wan't to do: \n"
             << "\t1. Login\n"
             << "\t2. Login as admin\n"
-            << "\t3. Exit\n"
-            << "? ";
+            << "\t3. Exit\n";
 
         uInt option;
-        cin >> option;
+        validatedInput(option, "your choice");
         switch (option) {
         case LOGIN: {
             printTitle("Log In");
-            uInt acc_number;
+
+            uInt accNumber;
             string password;
-            cout << "Account Number: "; cin >> acc_number;
+
+            validatedInput(accNumber, "Account Number");
             cout << "Password: "; cin >> password;
-            printLine();
-            try {
-                currUser = users.get(acc_number % 100'000);
-                if (!(currUser->checkPassword(password))) {
-                    cout << "Incorrect Password Try again!\n";
-                    continue;
-                }
-            } catch (out_of_range &e) {
-                cerr << "Can't find user.\n" \
-                    "Please retry with correct account number or create a new account.\n";
+            cout << endl;
+
+            // check if user exists
+            currUser = users.getByAccount(accNumber);
+            if (currUser == 0) {
+                cout << "[ERROR!] Can't find user.\n" \
+                    "Please make sure you have account " << accNumber << ".\n"
+                    "If you don't have create a new account.\n";
+                continue;
+            }
+            if (!(currUser->checkPassword(password))) {
+                cout << "[Error!] Incorrect Password Try again!\n";
                 continue;
             }
             cout << "Successfully Logged in.\n";
 
-            printTitle("Wellcome, " + currUser->fullName + "!");
+            cout << "Wellcome, " << currUser->fullName << "!\n";
+
             do {
                 printOption();
-                cin >> option;
+                validatedInput(option, "your choice");
+
                 switch (option) {
                 case WITHDRAW: {
                     double amount;
-                    cout << "How much? "; cin >> amount;
+                    amount = validatedInput(amount, "Amount");
                     currUser->withdraw(amount);
                     break;
                 }
                 case DEPOSIT: {
                     double amount;
-                    cout << "How much? "; cin >> amount;
+                    amount = validatedInput(amount, "Amount");
                     currUser->deposit(amount);
                     break;
                 }
@@ -346,13 +395,11 @@ int main()
                     break;
                 }
                 case TRANSFER: {
-                    uInt acc_number;
+                    uInt accNumber;
                     double amount;
-                    cout << "Account: "; cin >> acc_number;
-                    cout << "How much do you want to transfer: ";
-                    cin >> amount;
-                    uInt id = acc_number % 100'000;
-                    currUser->transfer(users.get(id), amount);
+                    validatedInput(accNumber, "Account number");
+                    validatedInput(amount, "Transfer amount");
+                    currUser->transfer(users.getByAccount(accNumber), amount);
 
                     break;
                 }
@@ -374,7 +421,6 @@ int main()
                 default:
                     cout << "Invalid Input. Please try again. \n";
                     continue;
-                    break;
                 }
             } while (true);
 
@@ -384,35 +430,45 @@ int main()
             printTitle("Log In as Admin");
             string password;
             cout << "password : "; cin >> password;
+
+            // checks if the password is correct
             if (password != ADMIN_PASS) {
                 cout << "[ERROR!] Incorrect password! Please try again.\n";
                 continue;
             }
             else {
                 do {
-                    cout << "Choose:\n"
-                        << "1. Create new account\n"
-                        << "2. Get info about all accounts\n"
-                        << "3. Recent Transacations\n"
-                        << "4. Deactivate Account\n"
-                        << "5. Logout\n? ";
-                    uInt option; cin >> option;
+                    cout << "\nChoose:\n"
+                        << "  1. Create new account\n"
+                        << "  2. Get info about all accounts\n"
+                        << "  3. Recent Transacations\n"
+                        << "  4. Delete Account\n"
+                        << "  5. Logout\n";
+                    uInt option;
+                    validatedInput(option, "your choice");
                     switch (option) {
                     case 1: {
-                        cout << "How many accounts do you wanna create: ";
-                        uInt nums; cin >> nums;
+
+                        uInt nums;
                         double initBalance;
                         char sex;
                         uInt age;
                         string fullName, password, phone;
+
+                        validatedInput(nums, "number of accounts to be created");
+
+                        cin.clear(); cin.ignore(10000, '\n');
+
                         for (uInt i = 0; i < nums; i++) {
                             cout << "Enter following info for user " << i + 1 << ": \n";
-                            cout << "Full Name: "; cin >> fullName;
-                            cout << "Gender: "; cin >> sex;
-                            cout << "Intial Balance: "; cin >> initBalance;
-                            cout << "Age: "; cin >> age;
-                            cout << "Phone: "; cin >> phone;
-                            cout << "Password: "; cin >> password;
+                            // accepts validated input
+                            validatedNameInput(fullName, MIN_NAME, MAX_NAME);
+                            validatedInput(sex, "Sex");
+                            validatedInput(initBalance, "intial balance");
+                            validatedInput(age, "age");
+                            validatedStringInput(phone, "Phone", 10, 12);
+                            validatedStringInput(password, "Password", MIN_PASS, MAX_PASS);
+
                             Account newAccount(fullName, initBalance, password, phone, sex, age);
                             users.push(newAccount);
                         }
@@ -423,17 +479,45 @@ int main()
                         users.print();
                         break;
                     case 3:
-                        cout << "Recent Transacations\n";
+                        printTitle("Recent Transacations");
+
+                        cout << endl << setw(7) << "Account"
+                            << setw(12) << "Remaining"
+                            << setw(12) << "Amount"
+                            << setw(22) << "Date" << endl;
+                        printLine();
+                        for (uInt i = 0; i < users.getSize(); i++) {
+                            Account *user = users.get(i);
+                            for (uInt j = 0; j < user->numOfTransaction; j++) {
+                                user->transactions[j].print();
+                            }
+                        }
+
                         break;
-                    case 4:
-                        printTitle("Deactivate Account");
+                    case 4: {
+                        printTitle("Delete Account");
+
+                        uInt accNumber;
+                        char choice;
+
+                        validatedInput(accNumber, "account number");
+                        cout << "Are you sure you wanna delete account number "
+                            << accNumber << "(y/n)? ";
+                        cin >> choice;
+                        if (choice == 'y') {
+                            users.remove(users.getIndex(accNumber));
+                        }
+                        else {
+                            cout << "Cancelled\n";
+                        }
                         break;
+
+                    }
                     case 5:
                         goto exit_loop2;
                         break;
                     default:
-                        cout << "[ERROR!] Invalid input. Please try again.\n";
-                        break;
+                        printError("Invalid input. Please try again.");
                     }
                 } while (true);
             }
@@ -443,19 +527,11 @@ int main()
             return 0;
             break;
         default:
-            cout << "[ERROR!] Invalid input. Please try again.\n";
-            break;
+            printError("Invalid input. Please try again.");
         }
-
-        if (cin.fail()) {
-            cin.clear();
-            cin.ignore(10000, '\n');
-            cout << "\n[ERROR!] You've entered wrong input. Please try again.!" << endl;
-        }
-        else
-            break;
     exit_loop2:
         ;
+
     } while (true);
 
     return 0;
@@ -465,16 +541,15 @@ int main()
 void printOption()
 {
     printLine();
-    cout << "What do you wan't to do: \n"
+    cout << "What do you want to do: \n"
         << "\t1. Withdraw Money\n"
         << "\t2. Deposit\n"
         << "\t3. Check your balance\n"
         << "\t4. Transfer to another account\n"
-        << "\t5. Transactions history[TODO]\n"
+        << "\t5. Transactions history\n"
         << "\t6. Your information\n"
         << "\t7. Logout\n"
-        << "\t8. Exit\n"
-        << "? ";
+        << "\t8. Exit\n";
 }
 
 // prints centered title
@@ -489,4 +564,96 @@ void printTitle(string title)
 void printLine(char fill)
 {
     cout << string(WIDTH, fill) << endl;
+}
+
+// validates input
+uInt &validatedInput(uInt &val, string msg)
+{
+    while (true) {
+        cout << "Enter " << msg << ": ";
+        if (cin >> val)
+            break;
+        else {
+            printError(" Enter a valid integer value!");
+            cin.clear();
+            cin.ignore(10000, '\n');
+        }
+    }
+
+    return val;
+}
+
+// validates input
+double &validatedInput(double &val, string msg)
+{
+    while (true) {
+        cout << "Enter " << msg << ": ";
+        if (cin >> val)
+            break;
+        else {
+            printError("Enter a valid real value!");
+            cin.clear();
+            cin.ignore(10000, '\n');
+        }
+    }
+
+    return val;
+}
+
+
+
+// validate string 
+string &validatedStringInput(string &val, string msg, uInt min, uInt max)
+{
+    while (true) {
+        cout << "Enter " << msg << ": ";
+        cin >> val;
+        if (val.length() >= min && val.length() <= max)
+            break;
+        else {
+            printError("Invalid input. The input should be "
+                + to_string(min) + " to " + to_string(max) + " Long.");
+        }
+    }
+    return val;
+}
+// validate string 
+string &validatedNameInput(string &val, uInt min, uInt max)
+{
+    while (true) {
+        cout << "Enter full name: ";
+        getline(cin, val);
+        if (val.length() >= min && val.length() <= max)
+            break;
+        else {
+            printError("Invalid input. The Name should be between "
+                + to_string(min) + " to " + to_string(max) + " Long.");
+        }
+    }
+    return val;
+}
+
+char &validatedInput(char &val, string msg)
+{
+    while (true) {
+        cout << "Enter " << msg << ": ";
+        if (cin >> val) {
+            if (val == 'M' || val == 'F')
+                break;
+            else
+                printError("The sex should be either 'M' or 'F'");
+        }
+        else {
+            printError("Enter a valid char value!");
+            cin.clear();
+            cin.ignore(10000, '\n');
+        }
+    }
+
+    return val;
+}
+
+void printError(string msg)
+{
+    cout << "\n[Error!] " << msg << endl;
 }
