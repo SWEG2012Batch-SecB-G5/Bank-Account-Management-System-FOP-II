@@ -38,7 +38,7 @@ const uInt WIDTH = 75;
 const string ADMIN_PASS = "admin123";
 // max and min length of password and name
 const uInt MIN_NAME = 4, MAX_NAME = 25, MIN_PASS = 4, MAX_PASS = 8;
-double maxWithdraw = 5000;
+double maxWithdraw = 5000, minDeposit = 25;
 uInt currId = 100000; // to keep track of the account 
 
 // prototypes
@@ -90,7 +90,7 @@ public:
     string phone;
     char sex;
     uInt age;
-    AccountType type;
+    AccountType type; // type of account saving or deposit
     double balance;
     Transaction transactions[10];
     uInt numOfTransaction = 0;
@@ -234,7 +234,7 @@ public:
     // add user to end of the array
     void push(Account user)
     {
-        // this means we need to increase the size of the array
+        // increase the size of the array
         if (capcity == size) {
             // copying array
             Account *temp = new Account[capcity * 2];
@@ -632,7 +632,7 @@ string &validatedNameInput(string &val, uInt min, uInt max)
     }
     return val;
 }
-
+ 
 char &validatedInput(char &val, string msg)
 {
     while (true) {
