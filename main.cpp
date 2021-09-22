@@ -105,7 +105,6 @@ public:
 	// change password
 	void setPassword(const char *pass);
 	bool checkPassword(char pass[]);
-	void transfer(Account *a, double amount);
 	void printHistory();
 	void printInfo();
 };
@@ -113,19 +112,20 @@ public:
 // prototypes
 template <typename T>
 T &validatedInput(T &val, string msg);
-char *validatedStringInput(char *val, string msg, uInt min, uInt max);
-char *validatedNameInput();
+char *validatedInput(char *val, string msg, uInt min, uInt max);
+char *validatedInput();
 void printError(string msg);
-void printOption();
 void printTitle(string title);
 void printLine(char fill = '-');
 void printAccounts(ostream &output, fstream &file);
+bool compare(Transaction &, Transaction &);
 Account getAccount(uInt accNumber, iostream &file);
 void newAccount(iostream &file);
-void updateAccount(double amount, uInt accNumber, iostream &file);
+void updateBalance(double amount, Account &acc, iostream &file);
 void createBlankAccount(fstream &file);
 void deleteAccount(fstream &file);
 uInt getAccountNumber();
+uInt getUserChoice();
 
 int main()
 {
@@ -164,59 +164,78 @@ int main()
 			// check if user exists
 			currUser = getAccount(accNumber, file);
 			if (!(currUser.checkPassword(password)))
-			{
 				continue;
-			}
 			cout << "Successfully Logged in.\n";
 			cout << "Wellcome, " << currUser.fullName << "!\n";
 
 			do
 			{
-				printOption();
-				validatedInput(option, "your choice");
-
-				switch (option)
+				switch (getUserChoice())
 				{
 				case WITHDRAW:
 				{
 					double amount;
 					amount = validatedInput(amount, "Amount");
-					updateAccount(-amount, currUser.accountNumber, file);
+					if (amount >= maxWithdraw)
+					{
+						printError("You exceeded a given maximum withdraw for the day.");
+						continue;
+					}
+					updateBalance(-amount, currUser, file);
+					cout << "\nYour account has been credited with $" << amount
+						 << ".\nYour current balance is " << currUser.balance << endl;
+
 					break;
 				}
 				case DEPOSIT:
 				{
 					double amount;
 					amount = validatedInput(amount, "Amount");
-					updateAccount(amount, currUser.accountNumber, file);
+					updateBalance(amount, currUser, file);
+
+					cout << "\nYour account has been debited with $" << amount
+						 << ".\nYour current balance is " << currUser.balance << endl;
 					break;
 				}
 				case BALANCE:
-				{
 					cout << "Your current balance is " << currUser.balance << endl;
 					break;
-				}
 				case TRANSFER:
 				{
-					uInt accNumber = getAccountNumber();
+					Account acc = getAccount(getAccountNumber(), file);
 					double amount;
 					validatedInput(amount, "Transfer amount");
+					if (amount >= maxWithdraw)
+					{
+						printError("You exceeded a given maximum withdraw for the day.");
+						continue;
+					}
 
-					updateAccount(-amount, currUser.accountNumber, file); // withdraw from current user
-					updateAccount(amount, accNumber, file);				  // deposit to another account
+					// prompting for confirmition
+					cout << "Account #" << acc.accountNumber << " Belongs to `"
+						 << acc.fullName << "`. Do you want to continue? ";
+					char ch;
+					validatedInput(ch, "your choice(y/n)");
+
+					// if cancelled
+					if (ch != 'y')
+						continue;
+
+					updateBalance(-amount, currUser, file); // withdraw from current user
+					updateBalance(amount, acc, file);		// deposit to another account
+
+					cout << "\nYou have transferred $" << amount
+						 << " to " << acc.fullName << "\n"
+						 << "Your current balance is " << acc.balance << endl;
 					break;
 				}
 				case INFO:
-				{
 					currUser.printInfo();
 					break;
-				}
 				case HISTORY:
-				{
 					printTitle("Transactions");
 					currUser.printHistory();
 					break;
-				}
 				case LOGOUT:
 					goto exit_loop2;
 					break;
@@ -249,13 +268,13 @@ int main()
 				do
 				{
 					cout << "\nChoose:\n  "
-						 << NEW_ACCOUNT 	<<". Create new account\n  "
-						 << ALL_ACCOUNT		<<". Get info about all accounts\n  "
-						 << HISTORY_ADMIN	<<". Recent Transacations\n  "
-						 << DELETE_ACCOUNT	<<". Delete Account\n  "
-						 << PRINT_ACCOUNTS 	<<". Print to file `account.txt`\n  "
-						 << LOGOUT_ADMIN	<<". Logout\n  "
-						 << EXIT_ADMIN	 	<<". Exit\n";
+						 << NEW_ACCOUNT << ". Create new account\n  "
+						 << ALL_ACCOUNT << ". Get info about all accounts\n  "
+						 << HISTORY_ADMIN << ". Recent Transacations\n  "
+						 << DELETE_ACCOUNT << ". Delete Account\n  "
+						 << PRINT_ACCOUNTS << ". Print to file `account.txt`\n  "
+						 << LOGOUT_ADMIN << ". Logout\n  "
+						 << EXIT_ADMIN << ". Exit\n";
 					uInt option;
 					validatedInput(option, "your choice");
 					switch (option)
@@ -296,11 +315,9 @@ int main()
 
 						break;
 					case DELETE_ACCOUNT:
-					{
 						printTitle("Delete Account");
 						deleteAccount(file);
 						break;
-					}
 					case PRINT_ACCOUNTS:
 					{
 						ofstream oAccount("account.txt");
@@ -330,25 +347,29 @@ int main()
 			printError("Invalid input. Please try again.");
 		}
 	exit_loop2:;
-
+		file.clear(); // reset eof indicator
 	} while (true);
 
 	return 0;
 }
 
 // prints option
-void printOption()
+uInt getUserChoice()
 {
 	printLine();
+	uInt choice;
+
 	cout << "What do you want to do: \n\t"
 		 << WITHDRAW << ". Withdraw Money\n\t"
-		 << DEPOSIT  << ". Deposit\n\t"
-		 <<	BALANCE  << ". Check your balance\n\t"
+		 << DEPOSIT << ". Deposit\n\t"
+		 << BALANCE << ". Check your balance\n\t"
 		 << TRANSFER << ". Transfer to another account\n\t"
-		 << HISTORY  << ". Transactions history\n\t"
-		 << INFO	 << ". Your information\n\t"
-		 << LOGOUT 	 << ". Logout\n\t"
-		 << EXIT	 << ". Exit\n";
+		 << HISTORY << ". Transactions history\n\t"
+		 << INFO << ". Your information\n\t"
+		 << LOGOUT << ". Logout\n\t"
+		 << EXIT << ". Exit\n";
+	validatedInput(choice, "your choice");
+	return choice;
 }
 
 // prints centered title
@@ -376,7 +397,7 @@ T &validatedInput(T &val, string msg)
 			break;
 		else
 		{
-			printError("Enter a valid "+ msg + " value!");
+			printError("Enter a valid " + msg + " value!");
 			cin.clear();
 			cin.ignore(10000, '\n');
 		}
@@ -386,7 +407,7 @@ T &validatedInput(T &val, string msg)
 }
 
 // validate string
-char *validatedStringInput(char *val, string msg, uInt min, uInt max)
+char *validatedInput(char *val, string msg, uInt min, uInt max)
 {
 	while (true)
 	{
@@ -395,15 +416,13 @@ char *validatedStringInput(char *val, string msg, uInt min, uInt max)
 		if (strlen(val) >= min && strlen(val) <= max)
 			break;
 		else
-		{
 			printError("Invalid input. The input should be " + to_string(min) +
 					   " to " + to_string(max) + " character long.");
-		}
 	}
 	return val;
 }
 // validate string
-char *validatedNameInput(char *name)
+char *validatedInput(char *name)
 {
 	while (true)
 	{
@@ -412,7 +431,7 @@ char *validatedNameInput(char *name)
 
 		cout << "Enter full name: ";
 		cin.getline(name, MAX_NAME);
-	
+
 		if (strlen(name) >= MIN_NAME && strlen(name) <= MAX_NAME)
 			break;
 		else
@@ -428,7 +447,7 @@ void printError(string msg)
 
 void printAccounts(ostream &output, fstream &file)
 {
-	output << "\n\n"
+	output << "\n"
 		   << left << setw(10) << "Account"
 		   << setw(17) << "Name"
 		   << setw(5) << "Age"
@@ -457,6 +476,7 @@ void printAccounts(ostream &output, fstream &file)
 	cout << endl;
 }
 
+// get account for particular account number
 Account getAccount(uInt accNumber, iostream &file)
 {
 	Account acc;
@@ -466,6 +486,7 @@ Account getAccount(uInt accNumber, iostream &file)
 	return acc;
 }
 
+// creates new accounts and saves it to the file
 void newAccount(iostream &file)
 {
 	Account acc, a;
@@ -475,12 +496,12 @@ void newAccount(iostream &file)
 	file.read((char *)&a, sizeof(Account));
 
 	// accepts account informations
-	validatedNameInput(acc.fullName);
+	validatedInput(acc.fullName);
 	validatedInput(acc.sex, "Sex");
-	validatedInput(acc.balance, "intial balance");	
+	validatedInput(acc.balance, "intial balance");
 	validatedInput(acc.age, "age");
-	validatedStringInput(acc.phone, "Phone", 10, 12);
-	validatedStringInput(acc.password, "Password", MIN_PASS, MAX_PASS);
+	validatedInput(acc.phone, "Phone", 10, 12);
+	validatedInput(acc.password, "Password", MIN_PASS, MAX_PASS);
 
 	acc.log(acc.balance);
 	if (a.accountNumber == 0)
@@ -493,35 +514,20 @@ void newAccount(iostream &file)
 		printError("account #" + to_string(acc.accountNumber) + " already exists.");
 }
 
-void updateAccount(double amount, uInt accNumber, iostream &file)
+//
+void updateBalance(double amount, Account &acc, iostream &file)
 {
-	Account acc;
-	file.seekg((accNumber - 1) * sizeof(Account));
-	file.read((char *)&acc, sizeof(Account));
-
-	if (acc.accountNumber == 0)
-		printError("account #" + to_string(acc.accountNumber) + " doesn't exist.");
-	else if (amount < 0 || amount >= maxWithdraw)
-	{
-		printError("You exceeded a given maximum withdraw for the day.");
-		return;
-		cin.clear();
-		cin.ignore(10000, '\n');
-	}
-
+	// update balance
 	acc.balance += amount;
 	// log to transaction
 	acc.log(amount);
 
-	// replace the old with new one
-	file.seekg((accNumber - 1) * sizeof(Account));
+	// replace the old acc with updated
+	file.seekg((acc.accountNumber - 1) * sizeof(Account));
 	file.write((char *)&acc, sizeof(Account));
-
-	cout << "\nSuccess! Your account has been " << (amount > 0 ? "debited" : "credited")
-		 << " with " << amount << ".\n"
-		 << "Your current balance is " << acc.balance << endl;
 }
 
+// create blank account file
 void createBlankAccount(fstream &file)
 {
 	Account blank;
@@ -533,6 +539,7 @@ void createBlankAccount(fstream &file)
 	}
 }
 
+// get valid account number
 uInt getAccountNumber()
 {
 	uInt accNumber;
@@ -548,6 +555,7 @@ uInt getAccountNumber()
 	return accNumber;
 }
 
+// delete accout
 void deleteAccount(fstream &file)
 {
 	uInt accNumber = getAccountNumber();
@@ -564,9 +572,7 @@ void deleteAccount(fstream &file)
 		cout << "\nAccount #" << accNumber << " succesfully deleted\n";
 	}
 	else
-	{
 		cout << "Cancelled\n";
-	}
 }
 
 Account::Account(char name[], double initBalance,
@@ -609,6 +615,7 @@ void Account::setPassword(const char *pass)
 	strcpy(password, pass);
 }
 
+// checks if the password is correct
 bool Account::checkPassword(char pass[])
 {
 	if (strcmp(pass, password) == 0)
@@ -617,19 +624,32 @@ bool Account::checkPassword(char pass[])
 	return false;
 }
 
+// prints transaction history
 void Account::printHistory()
 {
+	// prints table header
 	cout << endl
 		 << setw(7) << "Account"
 		 << setw(12) << "Remaining"
 		 << setw(12) << "Amount"
 		 << setw(22) << "Date" << endl;
 	printLine();
+
+	vector<Transaction> history; // transaction history;
 	for (uInt i = 0; i < 10; i++)
 	{
+		// if account exists then add to be sorted
 		if (transactions[i].account != 0)
-			transactions[i].print();
+			history.push_back(transactions[i]);
 	}
+	// sort based on date newest first
+	sort(history.begin(), history.end(), compare);
+
+	// prints each transaction
+	for (auto t : history)
+		if (t.account != 0)
+			t.print();
+
 	cout << endl;
 }
 void Account::printInfo()
@@ -640,4 +660,10 @@ void Account::printInfo()
 		 << "Phone\t: " << phone << endl
 		 << "Age\t: " << age << endl
 		 << "Balance\t: " << balance << endl;
+}
+
+// compares two transaction using their date (the most recent)
+bool compare(Transaction &t1, Transaction &t2)
+{
+	return t1.date.ltime > t2.date.ltime;
 }
