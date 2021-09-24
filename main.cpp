@@ -10,6 +10,7 @@
 using namespace std;
 
 typedef unsigned int uInt;
+
 enum class AccountType
 {
 	SAVING,
@@ -20,10 +21,10 @@ enum MainOption
 {
 	LOGIN = 1,
 	ADMIN,
-	EXIT_M
+	EXIT
 };
 
-enum Option
+enum class Option
 {
 	WITHDRAW = 1,
 	DEPOSIT,
@@ -35,15 +36,15 @@ enum Option
 	EXIT
 };
 
-enum AdminOption
+enum class AdminOption
 {
 	NEW_ACCOUNT = 1,
 	ALL_ACCOUNT,
-	HISTORY_ADMIN,
+	HISTORY,
 	DELETE_ACCOUNT,
 	PRINT_ACCOUNTS,
-	LOGOUT_ADMIN,
-	EXIT_ADMIN
+	LOGOUT,
+	EXIT
 };
 const uInt WIDTH = 75;
 // max and min length of password and name
@@ -66,8 +67,9 @@ struct Date
 };
 
 // used to hold history of transaction
-struct Transaction
+class Transaction
 {
+public:
 	uInt account;
 	Date date;		  //time of the transaction took place
 	double amount;	  // amount of transaction
@@ -96,16 +98,16 @@ public:
 	Transaction transactions[10];
 	uInt numOfTransaction = 0;
 
-	Account(char name[] = "", double initBalance = 0.0,
-			char passw[] = "", char phoneNumber[] = "",
-			char s = '\0', uInt agg = 0, uInt accNumber = 0,
+	Account(){};
+	Account(char *name, double initBalance,
+			char *passw, char *phoneNumber,
+			char s, uInt agg, uInt accNumber,
 			AccountType t = AccountType::DEPOSIT);
 	// logs to to transaction history
 	void log(double amount);
 	// change password
 	void setPassword(const char *pass);
 	bool checkPassword(char pass[]);
-	void printHistory();
 	void printInfo();
 };
 
@@ -115,17 +117,20 @@ T &validatedInput(T &val, string msg);
 char *validatedInput(char *val, string msg, uInt min, uInt max);
 char *validatedInput();
 void printError(string msg);
+void printHistory(vector<Transaction> &);
 void printTitle(string title);
 void printLine(char fill = '-');
 void printAccounts(ostream &output, fstream &file);
+void printTransHeader();
 bool compare(Transaction &, Transaction &);
 Account getAccount(uInt accNumber, iostream &file);
 void newAccount(iostream &file);
 void updateBalance(double amount, Account &acc, iostream &file);
-void createBlankAccount(fstream &file);
+void createBlankAccount(fstream& file);
 void deleteAccount(fstream &file);
 uInt getAccountNumber();
 uInt getUserChoice();
+uInt getAdminChoice();
 
 int main()
 {
@@ -142,9 +147,9 @@ int main()
 	{
 		printLine('-');
 		cout << "  What do you wan't to do: \n\t"
-			 << LOGIN << ". Login\n\t"
-			 << ADMIN << ". Login as admin\n\t"
-			 << EXIT_M << ". Exit\n";
+			 << "1. Login\n\t"
+			 << "2. Login as admin\n\t"
+			 << "3. Exit\n";
 
 		uInt option;
 		validatedInput(option, "your choice");
@@ -170,9 +175,9 @@ int main()
 
 			do
 			{
-				switch (getUserChoice())
+				switch ((Option)getUserChoice())
 				{
-				case WITHDRAW:
+				case Option::WITHDRAW:
 				{
 					double amount;
 					amount = validatedInput(amount, "Amount");
@@ -187,7 +192,7 @@ int main()
 
 					break;
 				}
-				case DEPOSIT:
+				case Option::DEPOSIT:
 				{
 					double amount;
 					amount = validatedInput(amount, "Amount");
@@ -197,17 +202,22 @@ int main()
 						 << ".\nYour current balance is " << currUser.balance << endl;
 					break;
 				}
-				case BALANCE:
+				case Option::BALANCE:
 					cout << "Your current balance is " << currUser.balance << endl;
 					break;
-				case TRANSFER:
+				case Option::TRANSFER:
 				{
 					Account acc = getAccount(getAccountNumber(), file);
 					double amount;
 					validatedInput(amount, "Transfer amount");
-					if (amount >= maxWithdraw)
+					if (amount >= (currUser.balance - minDeposit ))
 					{
-						printError("You exceeded a given maximum withdraw for the day.");
+						printError("Your remaining balance should be atlease 25.");
+						continue;
+					}
+
+					if (acc.accountNumber == 0)  {
+						printError("Account Doesn't exits");
 						continue;
 					}
 
@@ -229,17 +239,28 @@ int main()
 						 << "Your current balance is " << acc.balance << endl;
 					break;
 				}
-				case INFO:
+				case Option::INFO:
 					currUser.printInfo();
 					break;
-				case HISTORY:
+				case Option::HISTORY:
+				{
 					printTitle("Transactions");
-					currUser.printHistory();
+					printTransHeader();
+					vector<Transaction> history; // transaction history;
+					for (uInt i = 0; i < 10; i++)
+					{
+						// if account exists then add to be sorted
+						Transaction trans = currUser.transactions[i];
+						if (trans.account != 0 && trans.account <= 100)
+							history.push_back(trans);
+					}
+					printHistory(history);
 					break;
-				case LOGOUT:
+				}
+				case Option::LOGOUT:
 					goto exit_loop2;
 					break;
-				case EXIT:
+				case Option::EXIT:
 					return 0;
 					break;
 				default:
@@ -247,7 +268,6 @@ int main()
 					continue;
 				}
 			} while (true);
-
 			break;
 		}
 		case ADMIN:
@@ -267,58 +287,49 @@ int main()
 			{
 				do
 				{
-					cout << "\nChoose:\n  "
-						 << NEW_ACCOUNT << ". Create new account\n  "
-						 << ALL_ACCOUNT << ". Get info about all accounts\n  "
-						 << HISTORY_ADMIN << ". Recent Transacations\n  "
-						 << DELETE_ACCOUNT << ". Delete Account\n  "
-						 << PRINT_ACCOUNTS << ". Print to file `account.txt`\n  "
-						 << LOGOUT_ADMIN << ". Logout\n  "
-						 << EXIT_ADMIN << ". Exit\n";
-					uInt option;
-					validatedInput(option, "your choice");
-					switch (option)
+					switch ((AdminOption)getAdminChoice())
 					{
-					case NEW_ACCOUNT:
+					case AdminOption::NEW_ACCOUNT:
 					{
 						uInt numOfAccount;
 						validatedInput(numOfAccount, "number of accounts to be created");
 
 						for (uInt i = 0; i < numOfAccount; i++)
 						{
-							cout << "Enter following info for user " << i + 1 << ": \n";
+							cout << "\nEnter following info for user " << i + 1 << ": \n";
 							newAccount(file);
 						}
 						break;
 					}
-					case ALL_ACCOUNT:
+					case AdminOption::ALL_ACCOUNT:
 						printTitle("All accounts");
 						printAccounts(cout, file);
 						break;
-					case HISTORY_ADMIN:
+					case AdminOption::HISTORY:
+					{
 						printTitle("Recent Transacations");
-
-						cout << endl
-							 << setw(7) << "Account"
-							 << setw(12) << "Remaining"
-							 << setw(12) << "Amount"
-							 << setw(22) << "Date" << endl;
-						printLine();
-						for (uInt i = 0; i < 10; i++)
+						printTransHeader();
+						vector<Transaction> history; // transaction history;
+						for (uInt i = 0; i < 100; i++)
 						{
-							Account user = getAccount(i + 1, file);
-							for (uInt j = 0; j < 10; j++)
+							Account user;
+							file.seekg(i * sizeof(user));
+							file.read((char *)&user, sizeof(user));
+							for (uInt j = 0; j < 10 && user.accountNumber != 0; j++)
 							{
-								user.transactions[j].print();
+								Transaction trans = user.transactions[j];
+								if (trans.account == user.accountNumber)
+									history.push_back(trans);
 							}
 						}
-
-						break;
-					case DELETE_ACCOUNT:
+						printHistory(history);
+					}
+					break;
+					case AdminOption::DELETE_ACCOUNT:
 						printTitle("Delete Account");
 						deleteAccount(file);
 						break;
-					case PRINT_ACCOUNTS:
+					case AdminOption::PRINT_ACCOUNTS:
 					{
 						ofstream oAccount("account.txt");
 						if (!oAccount)
@@ -328,10 +339,10 @@ int main()
 						cout << "Created account.txt. Check it in your current working directory\n";
 						break;
 					}
-					case LOGOUT_ADMIN:
+					case AdminOption::LOGOUT:
 						goto exit_loop2;
 						break;
-					case EXIT_ADMIN:
+					case AdminOption::EXIT:
 						return 0;
 					default:
 						printError("Invalid input. Please try again.");
@@ -360,14 +371,14 @@ uInt getUserChoice()
 	uInt choice;
 
 	cout << "What do you want to do: \n\t"
-		 << WITHDRAW << ". Withdraw Money\n\t"
-		 << DEPOSIT << ". Deposit\n\t"
-		 << BALANCE << ". Check your balance\n\t"
-		 << TRANSFER << ". Transfer to another account\n\t"
-		 << HISTORY << ". Transactions history\n\t"
-		 << INFO << ". Your information\n\t"
-		 << LOGOUT << ". Logout\n\t"
-		 << EXIT << ". Exit\n";
+		 << "1. Withdraw Money\n\t"
+		 << "2. Deposit\n\t"
+		 << "3. Check your balance\n\t"
+		 << "4. Transfer to another account\n\t"
+		 << "5. Transactions history\n\t"
+		 << "6. Your information\n\t"
+		 << "7. Logout\n\t"
+		 << "8. Exit\n";
 	validatedInput(choice, "your choice");
 	return choice;
 }
@@ -421,7 +432,7 @@ char *validatedInput(char *val, string msg, uInt min, uInt max)
 	}
 	return val;
 }
-// validate string
+// validate name string
 char *validatedInput(char *name)
 {
 	while (true)
@@ -479,11 +490,14 @@ void printAccounts(ostream &output, fstream &file)
 // get account for particular account number
 Account getAccount(uInt accNumber, iostream &file)
 {
-	Account acc;
+	Account acc, blank;
 	file.seekg((accNumber - 1) * sizeof(Account));
 	file.read((char *)&acc, sizeof(Account));
 
-	return acc;
+	if (acc.accountNumber != 0)
+		return acc;
+	else
+		return blank;
 }
 
 // creates new accounts and saves it to the file
@@ -514,7 +528,7 @@ void newAccount(iostream &file)
 		printError("account #" + to_string(acc.accountNumber) + " already exists.");
 }
 
-//
+// update balance
 void updateBalance(double amount, Account &acc, iostream &file)
 {
 	// update balance
@@ -575,8 +589,8 @@ void deleteAccount(fstream &file)
 		cout << "Cancelled\n";
 }
 
-Account::Account(char name[], double initBalance,
-				 char passw[], char phoneNumber[],
+Account::Account(char *name, double initBalance,
+				 char *passw, char *phoneNumber,
 				 char s, uInt agg, uInt accNumber,
 				 AccountType t)
 {
@@ -589,6 +603,12 @@ Account::Account(char name[], double initBalance,
 	sex = s;
 	age = agg;
 	numOfTransaction = 0;
+
+	for (uInt i = 0; i < 10; i++)
+	{
+		Transaction t;
+		transactions[i] = t;
+	}
 
 	// log to transaction
 	log(initBalance);
@@ -624,34 +644,6 @@ bool Account::checkPassword(char pass[])
 	return false;
 }
 
-// prints transaction history
-void Account::printHistory()
-{
-	// prints table header
-	cout << endl
-		 << setw(7) << "Account"
-		 << setw(12) << "Remaining"
-		 << setw(12) << "Amount"
-		 << setw(22) << "Date" << endl;
-	printLine();
-
-	vector<Transaction> history; // transaction history;
-	for (uInt i = 0; i < 10; i++)
-	{
-		// if account exists then add to be sorted
-		if (transactions[i].account != 0)
-			history.push_back(transactions[i]);
-	}
-	// sort based on date newest first
-	sort(history.begin(), history.end(), compare);
-
-	// prints each transaction
-	for (auto t : history)
-		if (t.account != 0)
-			t.print();
-
-	cout << endl;
-}
 void Account::printInfo()
 {
 	printTitle("Your Information");
@@ -660,6 +652,48 @@ void Account::printInfo()
 		 << "Phone\t: " << phone << endl
 		 << "Age\t: " << age << endl
 		 << "Balance\t: " << balance << endl;
+}
+
+void printTransHeader()
+{
+	// prints table header
+	cout << endl
+		 << setw(7) << "Account"
+		 << setw(12) << "Remaining"
+		 << setw(12) << "Amount"
+		 << setw(22) << "Date" << endl;
+	printLine();
+}
+
+uInt getAdminChoice()
+{
+	cout << "\nChoose:\n  "
+		 << "1. Create new account\n  "
+		 << "2. Get info about all accounts\n  "
+		 << "3. Recent Transacations\n  "
+		 << "4. Delete Account\n  "
+		 << "5. Print to file `account.txt`\n  "
+		 << "6. Logout\n  "
+		 << "7. Exit\n";
+	uInt option;
+	validatedInput(option, "your choice");
+
+	return option;
+}
+// prints transaction history
+void printHistory(vector<Transaction> &history)
+{
+	// sort based on date newest first
+	sort(history.begin(), history.end(), compare);
+
+	// prints each transaction
+	for (auto t : history)
+	{
+		if (t.account != 0)
+			t.print();
+	}
+
+	cout << endl;
 }
 
 // compares two transaction using their date (the most recent)
